@@ -1,7 +1,64 @@
+import { useEffect, useState } from 'react'
+import Cotter from 'cotter'
 import Head from 'next/head'
+
 import styles from '../styles/Home.module.css'
 
 export default function Home() {
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [publicResource, setPublicResource] = useState(null);
+  const [privateResource, setPrivateResource] = useState(null);
+
+  useEffect(() => {
+    const cotter = new Cotter(process.env.ApiKeyId);
+
+    if (localStorage.getItem("ACCESS_TOKEN") != null) {
+      setIsLoggedIn(true);
+    }
+
+    if(isLoggedIn === false){
+      cotter
+        .signInWithOTP()
+        .showEmailForm()
+        .then(payload => {
+          localStorage.setItem("ACCESS_TOKEN", payload.oauth_token.access_token);
+          setIsLoggedIn(true);
+        })
+        .catch(err => console.error(err));
+      }
+      
+  }, []);
+
+  const logOut = () => {
+    localStorage.removeItem("ACCESS_TOKEN");
+    setIsLoggedIn(false);
+    window.location.reload(true)
+  };
+
+
+  
+  // Get Public Resource
+  const getPublicResource = async () => {
+    var resp = await fetch("/api/public");
+    setPublicResource(await resp.text());
+  };
+    
+  // Get Private Resource
+  const getPrivateResource = async () => {
+    var token = localStorage.getItem("ACCESS_TOKEN");
+    if (token == null) {
+      setPrivateResource("Token doesn't exist, you're logged-out");
+      return;
+    }
+    var resp = await fetch("/api/private", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    setPrivateResource(await resp.text());
+  };
+
   return (
     <div className={styles.container}>
       <Head>
@@ -9,57 +66,44 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
+      <main>
+      <h1 className="title">Passwordless App.</h1>
 
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
+      {/* 1️⃣ TODO: Setup a div to contain the form */}
+      {
+        isLoggedIn === false &&
+        <div id="cotter-form-container" style={{ width: 300, height: 300 }} />
+      }
+      
+      
+      <p>
+        {isLoggedIn ? "✅ You are logged in" : "❌ You are not logged in"}
+      </p>
 
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h3>Documentation &rarr;</h3>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h3>Learn &rarr;</h3>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className={styles.card}
-          >
-            <h3>Examples &rarr;</h3>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/import?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h3>Deploy &rarr;</h3>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
-      </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+      {isLoggedIn ? (
+        <div
+            className="card"
+            style={{ padding: 10, margin: 5, cursor: 'pointer' }}
+            onClick={logOut}
         >
-          Powered by{' '}
-          <img src="/vercel.svg" alt="Vercel Logo" className={styles.logo} />
-        </a>
-      </footer>
+          Log Out
+        </div>
+      ) : null}
+
+        {/* 1️⃣ TODO: Setup a div to contain the form */}
+        
+        <div className="grid">
+          <div className="card" onClick={getPublicResource} style={{cursor: 'pointer'}}>
+              <h3>Public Endpoint</h3>
+              <p>{publicResource}</p>
+          </div>
+
+          <div className="card" style={{cursor: 'pointer'}} onClick={getPrivateResource}>
+              <h3>Private Endpoint</h3>
+              <p>{privateResource}</p>
+          </div>
+      </div>
+      </main>
     </div>
   )
 }
